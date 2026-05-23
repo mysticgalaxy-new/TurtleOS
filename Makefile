@@ -1,14 +1,14 @@
 CC := gcc
-AS := gcc
+AS := nasm
 LD := ld
 
-CFLAGS := -m32 -ffreestanding -O2 -Wall -Wextra -fno-pic -fno-stack-protector -fno-builtin
-ASFLAGS := -m32 -c
+CFLAGS := -m32 -ffreestanding -O2 -Wall -Wextra -fno-pic -fno-stack-protector -fno-builtin -mno-sse -mno-sse2 -mno-mmx -mno-avx
+ASFLAGS := -f elf32
 LDFLAGS := -m elf_i386 -T src/linker.ld -nostdlib
 
-SRC_C := $(wildcard src/*.c)
-SRC_S := $(wildcard src/*.s)
-OBJ := $(SRC_C:.c=.o) $(SRC_S:.s=.o)
+SRC_C := $(shell find src -name "*.c")
+SRC_S := $(shell find src -name "*.asm")
+OBJ := $(SRC_C:.c=.o) $(SRC_S:.asm=.o)
 
 KERNEL := build/kernel.elf
 ISO_DIR := build/isofiles
@@ -21,12 +21,12 @@ all: $(KERNEL)
 
 $(KERNEL): $(OBJ)
 	@mkdir -p build
-	$(LD) $(LDFLAGS) -o $@ $(OBJ)
+	$(LD) $(LDFLAGS) -o $@ src/boot.o $(filter-out src/boot.o,$(OBJ))
 
 src/%.o: src/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-src/%.o: src/%.s
+src/%.o: src/%.asm
 	$(AS) $(ASFLAGS) $< -o $@
 
 iso: $(KERNEL)
@@ -53,4 +53,5 @@ run-nographic: iso disk
 	qemu-system-i386 -cdrom $(ISO) -drive file=$(DATA_DISK),format=raw,if=ide,index=0,media=disk -nographic -serial mon:stdio
 
 clean:
-	rm -rf build src/*.o
+	rm -rf build
+	find src -name "*.o" -delete 

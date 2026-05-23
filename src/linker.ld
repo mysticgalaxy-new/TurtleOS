@@ -1,32 +1,27 @@
 ENTRY(_start)
-
 SECTIONS
 {
-    . = 1M;
-
-    .multiboot ALIGN(4K) :
+    . = 0x100000;
+    .multiboot ALIGN(8) : { *(.multiboot) }
+    . = ALIGN(4);
+    .text : { *(.text*) }
+    . = ALIGN(4);
+    .rodata : { *(.rodata*) }
+    . = ALIGN(4);
+    .eh_frame : { *(.eh_frame) }
+    . = ALIGN(4);
+    .data : { *(.data*) }
+    . = ALIGN(4);
+    .bss (NOLOAD) :
     {
-        KEEP(*(.multiboot))
-    }
-
-    .text ALIGN(4K) :
-    {
-        *(.text*)
-    }
-
-    .rodata ALIGN(4K) :
-    {
-        *(.rodata*)
-    }
-
-    .data ALIGN(4K) :
-    {
-        *(.data*)
-    }
-
-    .bss ALIGN(4K) :
-    {
-        *(COMMON)
+        _bss_start = .;
         *(.bss*)
+        *(COMMON)
+        _bss_end = .;
     }
+    . = ALIGN(16);
+    .bootstrap_stack (NOLOAD) : {
+        *(.bootstrap_stack)
+    }
+    _end = .;
 }
