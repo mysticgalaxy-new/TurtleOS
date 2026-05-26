@@ -3,6 +3,7 @@
 #include "keyboard/keyboard.h"
 #include "memory/main.h"
 #include <stdint.h>
+#include <stdarg.h>
 
 struct multiboot_tag {
     uint32_t type;
@@ -246,6 +247,101 @@ void console_write(const char *s) {
 void console_writeln(const char *s) {
     console_write(s);
     console_putc('\n');
+}
+
+void console_writef(const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+
+    char buffer[32];
+    char out[1024];
+    int pos = 0;
+
+    for (int i = 0; fmt[i] != '\0'; i++) {
+        if (fmt[i] == '%') {
+            i++;
+
+            if (fmt[i] == 's') {
+                char* s = va_arg(args, char*);
+                for (int j = 0; s[j] != '\0'; j++) {
+                    out[pos++] = s[j];
+                }
+            }
+            else if (fmt[i] == 'd') {
+                itoa(va_arg(args, int), buffer, 10);
+                for (int j = 0; buffer[j] != '\0'; j++) {
+                    out[pos++] = buffer[j];
+                }
+            }
+            else if (fmt[i] == 'x') {
+                itoa(va_arg(args, int), buffer, 16);
+                for (int j = 0; buffer[j] != '\0'; j++) {
+                    out[pos++] = buffer[j];
+                }
+            }
+            else if (fmt[i] == 'c') {
+                out[pos++] = (char)va_arg(args, int);
+            }
+            else if (fmt[i] == '%') {
+                out[pos++] = '%';
+            }
+        } else {
+            out[pos++] = fmt[i];
+        }
+    }
+
+    out[pos] = '\0';
+    va_end(args);
+
+    console_write(out);
+}
+
+void console_writefln(const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+
+    char buffer[32];
+    char out[1024];
+    int pos = 0;
+
+    for (int i = 0; fmt[i] != '\0'; i++) {
+        if (fmt[i] == '%') {
+            i++;
+
+            if (fmt[i] == 's') {
+                char* s = va_arg(args, char*);
+                for (int j = 0; s[j] != '\0'; j++) {
+                    out[pos++] = s[j];
+                }
+            }
+            else if (fmt[i] == 'd') {
+                itoa(va_arg(args, int), buffer, 10);
+                for (int j = 0; buffer[j] != '\0'; j++) {
+                    out[pos++] = buffer[j];
+                }
+            }
+            else if (fmt[i] == 'x') {
+                itoa(va_arg(args, int), buffer, 16);
+                for (int j = 0; buffer[j] != '\0'; j++) {
+                    out[pos++] = buffer[j];
+                }
+            }
+            else if (fmt[i] == 'c') {
+                out[pos++] = (char)va_arg(args, int);
+            }
+            else if (fmt[i] == '%') {
+                out[pos++] = '%';
+            }
+        } else {
+            out[pos++] = fmt[i];
+        }
+    }
+
+    out[pos++] = '\n';
+    out[pos] = '\0';
+    va_end(args);
+
+    console_write(out);
 }
 
 char console_getc_blocking(void) {

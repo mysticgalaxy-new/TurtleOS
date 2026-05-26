@@ -98,3 +98,22 @@ int ata_write_sector(uint32_t lba, const void *buffer) {
 
     return ata_wait_not_busy();
 }
+
+uint32_t ata_get_sector_count() {
+    uint16_t buf[256];
+    ata_wait_not_busy();
+    outb(ATA_REG_HDDEVSEL, 0xA0); // Master Drive
+    outb(ATA_REG_COMMAND, 0xEC);  // IDENTIFY
+    ata_wait_not_busy();
+
+    for (int i = 0; i < 256; i++) {
+        __asm__ volatile("inw %w1, %w0" : "=a"(buf[i]) : "Nd"(ATA_REG_DATA) : "memory");
+    }
+
+    uint32_t sectors = buf[60] | ((uint32_t)buf[61] << 16);
+    if (buf[83] & (1 << 10)) {
+        sectors = buf[100] | ((uint32_t)buf[101] << 16);
+    }
+
+    return sectors;
+}

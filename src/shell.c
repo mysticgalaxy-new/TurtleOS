@@ -1,9 +1,13 @@
 #include "kernel.h"
 #include "memory/main.h"
+#include "arch/cpuinfo/main.h"
+#include "libc/main.h"
 #include "multitasking/task.h"
 #include "arch/idt.h"
 #include "arch/gdt.h"
 #include "keyboard/keyboard.h"
+#include "display.h"
+#include "pci/pci.h"
 #include "pit/pit.h"
 #include <stdint.h>
 #define CMD_BUF_SIZE 128
@@ -149,27 +153,28 @@ static void read_line_prompt(const char *prompt, char *buf, size_t buf_size, int
     console_write(prompt);
 
     for (;;) {
-        char c = console_getc_blocking();
+	if (kb_available()) {
+            char c = getchar();
 
-        if (c == '\r' || c == '\n') {
-            console_putc('\n');
-            break;
-        }
-
-        if (c == '\b' || c == 127) {
-            if (len > 0) {
-                len--;
-                console_putc('\b');
-                console_putc(' ');
-                console_putc('\b');
+            if (c == '\r' || c == '\n') {
+                console_putc('\n');
+                break;
             }
-            continue;
-        }
 
-        if (c >= 32 && c <= 126 && len + 1 < buf_size) {
-            buf[len++] = c;
-            console_putc(hide_input ? '*' : c);
+            if (c == '\b' || c == 127) {
+                if (len > 0) {
+                    len--;
+                    console_backspace();
+                }
+                continue;
+            }
+
+            if (c >= 32 && c <= 126 && len + 1 < buf_size) {
+                buf[len++] = c;
+                console_putc(hide_input ? '*' : c);
+            }
         }
+	__asm__ volatile("hlt");
     }
 
     buf[len] = '\0';
@@ -305,11 +310,20 @@ static void auth_boot_flow(void) {
     user_db_load();
 
     if (g_user_db.has_user) {
-        str_copy(g_current_user, sizeof(g_current_user), g_user_db.username);
-        g_logged_in = 1;
-        console_write("Auto login: ");
-        console_writeln(g_current_user);
-        return;
+	console_writeln("--Login--");
+	for (int logins = 0; logins < 3; logins ++) {
+            console_write("User: "); console_writeln(g_user_db.username);
+	    read_line_prompt("Password: ", password, sizeof(password), 1);
+	    int success = try_login(g_user_db.username, password);
+	    if (success == 1) {
+		console_writeln("Success!");
+		return;
+	    } else {
+		console_writeln("Failed!");
+		continue;
+	    }
+	}
+	reboot();
     }
 
     console_writeln("Account");
@@ -349,6 +363,7 @@ static void print_help(void) {
     console_writeln("  reboot");
     console_writeln("  halt");
     console_writeln("  Turtle talk");
+    console_writeln("  color");
 }
 
 static void print_uint2(unsigned int n) {
@@ -594,6 +609,14 @@ static void turtle_talk(const char *message) {
     console_writeln("James: I dont speak very good english, maybe try saying something in Turtalese.");
 }
 
+void cmd_ptop() {
+	task_info_t* tasks = (task_info_t*)malloc(sizeof(task_info_t) * get_task_count());
+	tasks_get_info(tasks, get_task_count());
+	for (int task = 0; task < get_task_count(); task++) {
+		console_writefln("PID: %d; Name: %s, Active: %d", tasks[task].pid, tasks[task].name, tasks[task].active);	
+	}	
+}
+
 static void run_command(const char *cmd) {
     char a[USERNAME_MAX + 1];
     char b[PASSWORD_MAX + 1];
@@ -607,6 +630,18 @@ static void run_command(const char *cmd) {
         return;
     }
 
+    if (streq(cmd, "ptop")) {
+	    cmd_ptop();
+	    return;
+    }
+
+    if (streq(cmd, "cpu")) {
+	    char buffer[49];
+	    get_cpu_name(buffer);
+	    console_writeln(buffer);
+	    return;
+    }
+
     if (streq(cmd, "Turtle talk")) {
         turtle_talk("");
         return;
@@ -617,6 +652,12 @@ static void run_command(const char *cmd) {
         return;
     }
 
+    if (streq(cmd, "lines")) {
+	    draw_line(0, 0, 1920, 1080, 0x00FF00);
+	    draw_line(1920, 0, 0, 1080, 0x0000FF);
+	    return;
+    }
+
     if (streq(cmd, "date")) {
         cmd_date();
         return;
@@ -625,6 +666,11 @@ static void run_command(const char *cmd) {
     if (starts_with(cmd, "calc ")) {
         cmd_calc(cmd + 5);
         return;
+    }
+
+    if (streq(cmd, "rect")) {
+	    draw_rect(200, 200, 200, 200, 0xFFFFFF);
+	    return;
     }
 
     if (streq(cmd, "calc")) {
@@ -645,6 +691,17 @@ static void run_command(const char *cmd) {
     if (streq(cmd, "clear")) {
         console_clear();
         return;
+    }
+
+    if (starts_with(cmd, "color ")) {
+        char* color_str = cmd + 9;
+	uint32_t color_hex = string_to_hex(color_str);
+	if (cmd[6] == 'f' && cmd[7] == 'g') {
+            set_console_fg_color(color_hex);
+	} else if (cmd[6] == 'b' && cmd[7] == 'g') {
+            set_console_bg_color(color_hex);
+	}
+	return;
     }
 
     if (starts_with(cmd, "echo ")) {
@@ -783,6 +840,7 @@ void shell() {
     console_writeln("\033[32mHome Computer System\033[0m");
     console_writeln("  ");
     set_console_fg_color(0xFFFFFF);
+    pci_enumerate(&g_pci_bus);
     auth_boot_flow();
     //console_writeln("  ");
     int new_prompt = 1;
@@ -817,5 +875,6 @@ void shell() {
             }
 	}
 	render_console();
+	__asm__ volatile("hlt");
     }
 }
