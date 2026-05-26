@@ -21,7 +21,7 @@ int tasks_count = 0;
 
 task_t tasks[MAX_TASKS];
 
-int task_init(void (*func), int id, int stack_size) {
+int task_init(void (*func), int id, char* name, int stack_size) {
 	if (tasks_count < MAX_TASKS) {
 		uint32_t* stack = (uint32_t*)((uint8_t*)malloc(stack_size) + stack_size);
 		if (!stack) {
@@ -42,6 +42,7 @@ int task_init(void (*func), int id, int stack_size) {
 		tasks[id].active = 1;
 		tasks[id].pid = id;
 		tasks_count++;
+		memcpy(tasks[id].name, name, 32);
 		return id;
 	} else {
 		return -1;
@@ -60,8 +61,8 @@ void schedule() {
 //0 means everything's good
 //-1 means something failed
 
-int add_task(void (*func), int stack_size) {
-	return task_init(func, tasks_count, stack_size);
+int add_task(void (*func), char* name, int stack_size) {
+	return task_init(func, tasks_count, name, stack_size);
 }
 
 int disable_task(int id) {
@@ -82,17 +83,14 @@ int enable_task(int id) {
 	}
 }
 
-int task_get_info(task_info_t* out, int max) {
-    int j = 0;
+int get_task_count() {
+	return tasks_count;
+}
 
-    for (int i = 0; i < MAX_TASKS && j < max; i++) {
-        if (tasks[i].active) {
-            out[j].pid = tasks[i].pid;
-            out[j].active = tasks[i].active;
-            memcpy(out[j].name, tasks[i].name, 32);
-            j++;
-        }
-    }
-
-    return j;
+void tasks_get_info(task_info_t* input, int max_tasks) {
+	for (int task = 0; task < max_tasks; task++) {
+		memcpy(input[task].name, tasks[task].name, 32);	
+		input[task].active = tasks[task].active;
+		input[task].pid = tasks[task].pid;
+	}
 }

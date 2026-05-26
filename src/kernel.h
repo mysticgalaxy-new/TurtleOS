@@ -2,6 +2,7 @@
 #define KERNEL_H
 #include <stddef.h>
 #include <stdint.h>
+#include "pci/pci.h"
 
 // ---------------- KERNEL ----------------
 void kernel_main(uint32_t magic, uint32_t mb_addr);
@@ -11,6 +12,8 @@ void shell();
 void console_init(uint32_t magic, uint32_t mb_addr);
 void console_write(const char *s);
 void console_writeln(const char *s);
+void console_writef(const char *fmt, ...);
+void console_writefln(const char *fmt, ...);
 void console_putc(char c);
 char console_getc_blocking(void);
 void console_clear(void);
@@ -36,6 +39,9 @@ void vga_putc(char c);
 void vga_write(const char *s);
 void vga_clear(void);
 
+// ---------------- PCI ----------------
+static pci_bus_t g_pci_bus;
+
 // ---------------- KEYBOARD ----------------
 void keyboard_init(void);
 int keyboard_has_char(void);
@@ -49,6 +55,7 @@ void outb(uint16_t port, uint8_t value);
 // ---------------- ATA ----------------
 int ata_read_sector(uint32_t lba, void *buffer);
 int ata_write_sector(uint32_t lba, const void *buffer);
+uint32_t ata_get_sector_count();
 
 // ---------------- SYSTEM ----------------
 void reboot(void);

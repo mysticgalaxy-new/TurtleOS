@@ -26,6 +26,9 @@ int keyboard_has_char(void) {
 }
 
 void keyboard_handler_c() {
+    if (inb(0x64) & 0x20)
+        return;
+    
     unsigned char scancode = inb(0x60);
 
     // SHIFT press
