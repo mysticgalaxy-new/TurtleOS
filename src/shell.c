@@ -672,6 +672,11 @@ static void run_command(const char *cmd) {
 	    draw_rect(200, 200, 200, 200, 0xFFFFFF);
 	    return;
     }
+	
+    if (streq(cmd, "rect2")) {
+	    draw_rect(300, 300, 300, 300, 0xFFFFFF);
+	    return;
+    }
 
     if (streq(cmd, "calc")) {
         cmd_calc("");
